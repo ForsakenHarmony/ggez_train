@@ -1,0 +1,7 @@
+[package]
+name = "ggez_train"
+version = "0.1.0"
+authors = ["Leah <me@hrmny.pw>"]
+
+[dependencies]
+ggez = "0.4"
