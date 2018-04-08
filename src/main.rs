@@ -1,4 +1,5 @@
 #![feature(slice_patterns)]
+#![feature(vec_remove_item)]
 
 extern crate ggez;
 
