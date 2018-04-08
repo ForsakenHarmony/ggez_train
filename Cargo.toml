@@ -5,3 +5,4 @@ authors = ["Leah <me@hrmny.pw>"]
 
 [dependencies]
 ggez = "0.4"
+rand = "0.4"

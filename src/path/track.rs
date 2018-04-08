@@ -9,13 +9,13 @@ use ggez::{
   Context,
 };
 
-pub const STRT_LEN: i32 = GRID_CELL_SIZE as i32;
+pub const STRT_LEN: f32 = GRID_CELL_SIZE as f32;
 
 pub trait TrackPiece {
   fn start(&self) -> Connection;
   fn end(&self) -> Connection;
 
-  fn len(&self) -> i32 {
+  fn len(&self) -> f32 {
     STRT_LEN
   }
 
@@ -25,7 +25,7 @@ pub trait TrackPiece {
 
     let mut diff = end - start;
     diff.scale(perc);
-    diff
+    start + diff
   }
 
   fn draw(&self, ctx: &mut Context) -> GameResult<()> {
@@ -64,7 +64,7 @@ pub struct Diagonal {
 }
 
 use std::f32::consts::SQRT_2;
-pub const DIAG_LEN: i32 = (SQRT_2 * GRID_CELL_SIZE as f32) as i32;
+pub const DIAG_LEN: f32 = SQRT_2 * 0.5 * GRID_CELL_SIZE as f32;
 
 impl Diagonal {
   pub fn new(start: Connection, end: Connection) -> Self {
@@ -83,7 +83,7 @@ impl TrackPiece for Diagonal {
     self.end
   }
 
-  fn len(&self) -> i32 {
+  fn len(&self) -> f32 {
     DIAG_LEN
   }
 }
@@ -91,9 +91,9 @@ impl TrackPiece for Diagonal {
 const TURN_RADIUS: f32 = 2.5 * GRID_CELL_SIZE as f32;
 const TURN_ANGLE: f32 = 0.643501102924346923828125;
 // 0.75_f32.atan();
-pub const TURN_LENGTH: i32 = (TURN_ANGLE * TURN_RADIUS) as i32;
+pub const TURN_LEN: f32 = (TURN_ANGLE * TURN_RADIUS);
 
-const TURN_DIVISIONS: i32 = 4;
+const TURN_DIVISIONS: i32 = 8;
 const TURN_ANGLE_FRACT: f32 = TURN_ANGLE / TURN_DIVISIONS as f32;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
@@ -156,8 +156,8 @@ impl TrackPiece for Turn {
   fn end(&self) -> Connection {
     self.end
   }
-  fn len(&self) -> i32 {
-    TURN_LENGTH
+  fn len(&self) -> f32 {
+    TURN_LEN
   }
   fn lerp(&self, perc: f32) -> Pos {
     let Pos(cx, cy) = self.center;
@@ -249,7 +249,7 @@ impl TrackPiece for Track {
     }
   }
 
-  fn len(&self) -> i32 {
+  fn len(&self) -> f32 {
     match self {
       Track::Turn(t) => t.len(),
       Track::Diag(t) => t.len(),

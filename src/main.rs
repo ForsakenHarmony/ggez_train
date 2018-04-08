@@ -1,9 +1,11 @@
 #![feature(slice_patterns)]
 #![feature(vec_remove_item)]
 
+extern crate rand;
 extern crate ggez;
 
 mod path;
+mod train;
 
 use ggez::{
   event::{self, MouseState, MouseButton},
@@ -13,12 +15,18 @@ use ggez::{
 };
 
 use path::{
+  track::{
+    Track,
+    TrackPiece,
+  },
   Path,
   Dir,
   Pos,
 };
 
-const GRID_SIZE: (i16, i16) = (30, 20);
+use train::Train;
+
+const GRID_SIZE: (i16, i16) = (40, 25);
 const GRID_CELL_SIZE: i16 = 32;
 
 const SCREEN_SIZE: (u32, u32) = (
@@ -28,7 +36,10 @@ const SCREEN_SIZE: (u32, u32) = (
 
 struct GameState {
   mouse_pos: Pos,
+  cam_pos: Pos,
   path: Option<Path>,
+  tracks: Vec<Track>,
+  trains: Vec<Train>,
 }
 
 impl GameState {
@@ -36,6 +47,9 @@ impl GameState {
     GameState {
       mouse_pos: Pos(0, 0),
       path: None,
+      tracks: Vec::new(),
+      trains: Vec::new(),
+      cam_pos: Pos(0, 0),
     }
   }
 }
@@ -62,15 +76,20 @@ fn snap_to_grid(pos: Pos) -> Pos {
 }
 
 impl event::EventHandler for GameState {
-  fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
+  fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
+    for train in self.trains.iter_mut() {
+      train.update(ctx, &self.tracks);
+    }
+
     Ok(())
   }
 
   fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
     graphics::clear(ctx);
+//    graphics::push_transform()
 
     // draw a grid
-    graphics::set_color(ctx, [0.0, 0.0, 0.0, 1.0].into())?;
+    graphics::set_color(ctx, [0.0, 0.0, 0.0, 0.6].into())?;
 
     for i in 0..GRID_SIZE.0 {
       let x: f32 = (i * GRID_CELL_SIZE) as f32;
@@ -83,6 +102,16 @@ impl event::EventHandler for GameState {
       let y: f32 = (i * GRID_CELL_SIZE) as f32;
 
       graphics::line(ctx, &[Point2::new(0., y), Point2::new(x, y)], 1.)?;
+    }
+
+    // draw track
+    for track in self.tracks.iter() {
+      track.draw(ctx)?;
+    }
+
+    // draw trains
+    for train in self.trains.iter_mut() {
+      train.draw(ctx)?;
     }
 
     // draw the path
@@ -112,29 +141,30 @@ impl event::EventHandler for GameState {
 
     match button {
       MouseButton::Left => {
-        // try add path node / start new path
+        if self.path.is_none() {
+          let is_x = x % GRID_CELL_SIZE as i32 == 0;
+          self.path = Some(Path::new(Pos(x, y), if is_x {
+            if mx > x { Dir::Right } else { Dir::Left }
+          } else {
+            if my > y { Dir::Up } else { Dir::Down }
+          }));
+          return;
+        }
 
-        match self.path {
-          Some(ref mut path) => { path.push(); }
-          None => {
-            let is_x = x % GRID_CELL_SIZE as i32 == 0;
-            self.path = Some(Path::new(Pos(x, y), if is_x {
-              if mx > x { Dir::Right } else { Dir::Left }
-            } else {
-              if my > y { Dir::Up } else { Dir::Down }
-            }));
-          }
-        };
+        let mut path = None;
+        std::mem::swap(&mut self.path, &mut path);
+        let mut path = path.expect("we checked for none");
 
-      },
+        if let Some(mut pieces) = path.into_pieces() {
+          self.tracks.append(&mut pieces);
+        }
+      }
 
       MouseButton::Right => {
-        // try to find a path
+        // add train
 
-        if let Some(ref mut path) = self.path {
-          path.add_path(Pos(x, y));
-        }
-      },
+        self.trains.push(Train::new(200., 0, 0., (4, 10., 40.)));
+      }
 
       _ => {}
     };
@@ -143,13 +173,20 @@ impl event::EventHandler for GameState {
   fn mouse_motion_event(
     &mut self,
     _ctx: &mut Context,
-    _state: MouseState,
+    state: MouseState,
     x: i32,
     y: i32,
-    _: i32,
-    _: i32,
+    dx: i32,
+    dy: i32,
   ) {
-    let snap = snap_to_grid(Pos(x, y));
+    if state.middle() {
+      self.cam_pos.0 += dx;
+      self.cam_pos.1 += dy;
+    }
+
+    let Pos(cx, cy) = self.cam_pos;
+
+    let snap = snap_to_grid(Pos(x + cx, y + cy));
 
     if snap == self.mouse_pos {
       return;

@@ -19,7 +19,7 @@ use super::{
   SCREEN_SIZE,
 };
 
-use self::track::{TrackPiece, Track, TURN_LENGTH, DIAG_LEN, STRT_LEN};
+use self::track::{TrackPiece, Track, TURN_LEN, DIAG_LEN, STRT_LEN};
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Hash)]
 pub struct Pos(pub i32, pub i32);
@@ -156,57 +156,61 @@ impl Connection {
       Connection::new(Pos(pos.0 as i32, pos.1 as i32), dir)
     };
 
+    let turn = TURN_LEN as i32;
+    let strt = STRT_LEN as i32;
+    let diag = DIAG_LEN as i32;
+
     let conns = match start.dir {
       Right => vec![
-        (conn((x + 1.5 * gs, y - 0.5 * gs), DownRight), TURN_LENGTH),
-        (conn((x + 1. * gs, y), Right), STRT_LEN),
-        (conn((x + 1.5 * gs, y + 0.5 * gs), UpRight), TURN_LENGTH),
+        (conn((x + 1.5 * gs, y - 0.5 * gs), DownRight), turn),
+        (conn((x + 1. * gs, y), Right), strt),
+        (conn((x + 1.5 * gs, y + 0.5 * gs), UpRight), turn),
       ],
       UpRight => vec![
-        (conn((x + 0.5 * gs, y + 0.5 * gs), UpRight), DIAG_LEN),
+        (conn((x + 0.5 * gs, y + 0.5 * gs), UpRight), diag),
         if is_x {
-          (conn((x + 0.5 * gs, y + 1.5 * gs), Up), TURN_LENGTH)
+          (conn((x + 0.5 * gs, y + 1.5 * gs), Up), turn)
         } else {
-          (conn((x + 1.5 * gs, y + 0.5 * gs), Right), TURN_LENGTH)
+          (conn((x + 1.5 * gs, y + 0.5 * gs), Right), turn)
         },
       ],
       DownRight => vec![
-        (conn((x + 0.5 * gs, y - 0.5 * gs), DownRight), DIAG_LEN),
+        (conn((x + 0.5 * gs, y - 0.5 * gs), DownRight), diag),
         if is_x {
-          (conn((x + 0.5 * gs, y - 1.5 * gs), Down), TURN_LENGTH)
+          (conn((x + 0.5 * gs, y - 1.5 * gs), Down), turn)
         } else {
-          (conn((x + 1.5 * gs, y - 0.5 * gs), Right), TURN_LENGTH)
+          (conn((x + 1.5 * gs, y - 0.5 * gs), Right), turn)
         },
       ],
       Up => vec![
-        (conn((x + 0.5 * gs, y + 1.5 * gs), UpRight), TURN_LENGTH),
-        (conn((x, y + 1. * gs), Up), STRT_LEN),
-        (conn((x - 0.5 * gs, y + 1.5 * gs), UpLeft), TURN_LENGTH),
+        (conn((x + 0.5 * gs, y + 1.5 * gs), UpRight), turn),
+        (conn((x, y + 1. * gs), Up), strt),
+        (conn((x - 0.5 * gs, y + 1.5 * gs), UpLeft), turn),
       ],
       Down => vec![
-        (conn((x - 0.5 * gs, y - 1.5 * gs), DownLeft), TURN_LENGTH),
-        (conn((x, y - 1. * gs), Down), STRT_LEN),
-        (conn((x + 0.5 * gs, y - 1.5 * gs), DownRight), TURN_LENGTH),
+        (conn((x - 0.5 * gs, y - 1.5 * gs), DownLeft), turn),
+        (conn((x, y - 1. * gs), Down), strt),
+        (conn((x + 0.5 * gs, y - 1.5 * gs), DownRight), turn),
       ],
       Left => vec![
-        (conn((x - 1.5 * gs, y + 0.5 * gs), UpLeft), TURN_LENGTH),
-        (conn((x - 1. * gs, y), Left), STRT_LEN),
-        (conn((x - 1.5 * gs, y - 0.5 * gs), DownLeft), TURN_LENGTH),
+        (conn((x - 1.5 * gs, y + 0.5 * gs), UpLeft), turn),
+        (conn((x - 1. * gs, y), Left), strt),
+        (conn((x - 1.5 * gs, y - 0.5 * gs), DownLeft), turn),
       ],
       UpLeft => vec![
-        (conn((x - 0.5 * gs, y + 0.5 * gs), UpLeft), DIAG_LEN),
+        (conn((x - 0.5 * gs, y + 0.5 * gs), UpLeft), diag),
         if is_x {
-          (conn((x - 0.5 * gs, y + 1.5 * gs), Up), TURN_LENGTH)
+          (conn((x - 0.5 * gs, y + 1.5 * gs), Up), turn)
         } else {
-          (conn((x - 1.5 * gs, y + 0.5 * gs), Left), TURN_LENGTH)
+          (conn((x - 1.5 * gs, y + 0.5 * gs), Left), turn)
         },
       ],
       DownLeft => vec![
-        (conn((x - 0.5 * gs, y - 0.5 * gs), DownLeft), DIAG_LEN),
+        (conn((x - 0.5 * gs, y - 0.5 * gs), DownLeft), diag),
         if is_x {
-          (conn((x - 0.5 * gs, y - 1.5 * gs), Down), TURN_LENGTH)
+          (conn((x - 0.5 * gs, y - 1.5 * gs), Down), turn)
         } else {
-          (conn((x - 1.5 * gs, y - 0.5 * gs), Left), TURN_LENGTH)
+          (conn((x - 1.5 * gs, y - 0.5 * gs), Left), turn)
         },
       ],
     };
@@ -222,40 +226,26 @@ impl Connection {
 // #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Path {
   start: Connection,
-  path: Vec<Track>,
-  poss_path: Option<Vec<Track>>,
+  path: Option<Vec<Track>>,
 }
 
 impl Path {
   pub fn new(start: Pos, dir: Dir) -> Self {
     Path {
       start: Connection::new(start, dir),
-      path: vec![],
-      poss_path: None,
+      path: None,
     }
   }
 
-  pub fn push(&mut self) {
-    if let Some(ref mut path) = self.poss_path {
-      self.start = path.last().unwrap().end();
-      self.path.append(path);
-    }
-
-    self.poss_path = None;
+  pub fn into_pieces(self) -> Option<Vec<Track>> {
+    self.path
   }
-
-  pub fn as_pieces(self) {}
 
   pub fn draw(&self, ctx: &mut Context) -> GameResult<()> {
     // draw path
-    graphics::set_color(ctx, [0.0, 0.0, 1.0, 1.0].into())?;
-
-    for track in self.path.iter() {
-      track.draw(ctx)?;
-    }
-
     graphics::set_color(ctx, [0.0, 0.7, 0.2, 1.0].into())?;
-    if let Some(ref path) = self.poss_path {
+
+    if let Some(ref path) = self.path {
       for track in path.iter() {
         track.draw(ctx)?;
       }
@@ -276,7 +266,7 @@ impl Path {
   pub fn add_path(&mut self, to: Pos) {
     let path = self.find_path(to);
 
-    self.poss_path = match path {
+    self.path = match path {
       Some(path) => {
         Some(path.windows(2).map(|c| Track::from((c[0], c[1]))).collect::<Vec<Track>>())
       }
