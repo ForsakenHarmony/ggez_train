@@ -19,7 +19,7 @@ use super::{
   SCREEN_SIZE,
 };
 
-use self::track::{Straight, Diagonal, Turn, TrackPiece, Track};
+use self::track::{TrackPiece, Track, TURN_LENGTH, DIAG_LEN, STRT_LEN};
 
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Ord, Eq, Hash)]
 pub struct Pos(pub i32, pub i32);
@@ -142,7 +142,7 @@ impl Connection {
     }
   }
 
-  fn gen_connections(&self) -> Vec<Track> {
+  fn gen_connections(&self) -> Vec<(Connection, i32)> {
     let start = *self;
 
     let gs = GRID_CELL_SIZE as f32;
@@ -152,76 +152,70 @@ impl Connection {
 
     use self::Dir::*;
 
+    let conn = |pos: (f32, f32), dir: Dir| {
+      Connection::new(Pos(pos.0 as i32, pos.1 as i32), dir)
+    };
+
     let conns = match start.dir {
       Right => vec![
-        Track::Turn(Turn::new(start, conn((x + 1.5 * gs, y - 0.5 * gs), DownRight))),
-        Track::Strt(Straight::new(start, conn((x + 1. * gs, y), Right))),
-        Track::Turn(Turn::new(start, conn((x + 1.5 * gs, y + 0.5 * gs), UpRight))),
+        (conn((x + 1.5 * gs, y - 0.5 * gs), DownRight), TURN_LENGTH),
+        (conn((x + 1. * gs, y), Right), STRT_LEN),
+        (conn((x + 1.5 * gs, y + 0.5 * gs), UpRight), TURN_LENGTH),
       ],
       UpRight => vec![
-        Track::Diag(Diagonal::new(start, conn((x + 0.5 * gs, y + 0.5 * gs), UpRight))),
+        (conn((x + 0.5 * gs, y + 0.5 * gs), UpRight), DIAG_LEN),
         if is_x {
-          Track::Turn(Turn::new(start, conn((x + 0.5 * gs, y + 1.5 * gs), Up)))
+          (conn((x + 0.5 * gs, y + 1.5 * gs), Up), TURN_LENGTH)
         } else {
-          Track::Turn(Turn::new(start, conn((x + 1.5 * gs, y + 0.5 * gs), Right)))
+          (conn((x + 1.5 * gs, y + 0.5 * gs), Right), TURN_LENGTH)
         },
       ],
       DownRight => vec![
-        Track::Diag(Diagonal::new(start, conn((x + 0.5 * gs, y - 0.5 * gs), DownRight))),
+        (conn((x + 0.5 * gs, y - 0.5 * gs), DownRight), DIAG_LEN),
         if is_x {
-          Track::Turn(Turn::new(start, conn((x + 0.5 * gs, y - 1.5 * gs), Down)))
+          (conn((x + 0.5 * gs, y - 1.5 * gs), Down), TURN_LENGTH)
         } else {
-          Track::Turn(Turn::new(start, conn((x + 1.5 * gs, y + 0.5 * gs), Right)))
+          (conn((x + 1.5 * gs, y - 0.5 * gs), Right), TURN_LENGTH)
         },
       ],
       Up => vec![
-        Track::Turn(Turn::new(start, conn((x + 0.5 * gs, y + 1.5 * gs), UpRight))),
-        Track::Strt(Straight::new(start, conn((x, y + 1. * gs), Up))),
-        Track::Turn(Turn::new(start, conn((x - 0.5 * gs, y + 1.5 * gs), UpLeft))),
+        (conn((x + 0.5 * gs, y + 1.5 * gs), UpRight), TURN_LENGTH),
+        (conn((x, y + 1. * gs), Up), STRT_LEN),
+        (conn((x - 0.5 * gs, y + 1.5 * gs), UpLeft), TURN_LENGTH),
       ],
       Down => vec![
-        Track::Turn(Turn::new(start, conn((x - 0.5 * gs, y - 1.5 * gs), DownLeft))),
-        Track::Strt(Straight::new(start, conn((x, y - 1. * gs), Down))),
-        Track::Turn(Turn::new(start, conn((x + 0.5 * gs, y - 1.5 * gs), DownRight))),
+        (conn((x - 0.5 * gs, y - 1.5 * gs), DownLeft), TURN_LENGTH),
+        (conn((x, y - 1. * gs), Down), STRT_LEN),
+        (conn((x + 0.5 * gs, y - 1.5 * gs), DownRight), TURN_LENGTH),
       ],
       Left => vec![
-        Track::Turn(Turn::new(start, conn((x - 1.5 * gs, y + 0.5 * gs), UpLeft))),
-        Track::Strt(Straight::new(start, conn((x - 1. * gs, y), Left))),
-        Track::Turn(Turn::new(start, conn((x - 1.5 * gs, y - 0.5 * gs), DownLeft))),
+        (conn((x - 1.5 * gs, y + 0.5 * gs), UpLeft), TURN_LENGTH),
+        (conn((x - 1. * gs, y), Left), STRT_LEN),
+        (conn((x - 1.5 * gs, y - 0.5 * gs), DownLeft), TURN_LENGTH),
       ],
       UpLeft => vec![
-        Track::Diag(Diagonal::new(start, conn((x - 0.5 * gs, y + 0.5 * gs), UpLeft))),
+        (conn((x - 0.5 * gs, y + 0.5 * gs), UpLeft), DIAG_LEN),
         if is_x {
-          Track::Turn(Turn::new(start, conn((x - 0.5 * gs, y + 1.5 * gs), Up)))
+          (conn((x - 0.5 * gs, y + 1.5 * gs), Up), TURN_LENGTH)
         } else {
-          Track::Turn(Turn::new(start, conn((x - 1.5 * gs, y + 0.5 * gs), Left)))
+          (conn((x - 1.5 * gs, y + 0.5 * gs), Left), TURN_LENGTH)
         },
       ],
       DownLeft => vec![
-        Track::Diag(Diagonal::new(start, conn((x - 0.5 * gs, y - 0.5 * gs), DownLeft))),
+        (conn((x - 0.5 * gs, y - 0.5 * gs), DownLeft), DIAG_LEN),
         if is_x {
-          Track::Turn(Turn::new(start, conn((x - 0.5 * gs, y - 1.5 * gs), Down)))
+          (conn((x - 0.5 * gs, y - 1.5 * gs), Down), TURN_LENGTH)
         } else {
-          Track::Turn(Turn::new(start, conn((x - 1.5 * gs, y - 0.5 * gs), Left)))
+          (conn((x - 1.5 * gs, y - 0.5 * gs), Left), TURN_LENGTH)
         },
       ],
     };
 
-    let mut ret_vec = Vec::new();
-
-    for p in conns {
-      let Pos(x, y) = p.end().pos;
-      if x > 0 && x < SCREEN_SIZE.0 as i32 && y > 0 && y < SCREEN_SIZE.1 as i32 {
-        ret_vec.push(p);
-      }
-    }
-
-    ret_vec
+    conns.into_iter().filter(|(p, _)| {
+      let Pos(x, y) = p.pos;
+      x > 0 && x < SCREEN_SIZE.0 as i32 && y > 0 && y < SCREEN_SIZE.1 as i32
+    }).collect()
   }
-}
-
-fn conn(pos: (f32, f32), dir: Dir) -> Connection {
-  Connection::new(Pos(pos.0 as i32, pos.1 as i32), dir)
 }
 
 // grid size, not screen size
@@ -243,9 +237,8 @@ impl Path {
 
   pub fn push(&mut self) {
     if let Some(ref mut path) = self.poss_path {
-      for t in path.drain(1..) {
-        self.path.push(t);
-      }
+      self.start = path.last().unwrap().end();
+      self.path.append(path);
     }
 
     self.poss_path = None;
@@ -283,16 +276,20 @@ impl Path {
   pub fn add_path(&mut self, to: Pos) {
     let path = self.find_path(to);
 
-    self.poss_path = path;
+    self.poss_path = match path {
+      Some(path) => {
+        Some(path.windows(2).map(|c| Track::from((c[0], c[1]))).collect::<Vec<Track>>())
+      }
+      None => None,
+    };
   }
 
-  pub fn find_path(&self, to: Pos) -> Option<Vec<Track>> {
+  pub fn find_path(&self, to: Pos) -> Option<Vec<Connection>> {
     let mut open: Vec<usize> = Vec::new();
     let mut closed: Vec<usize> = Vec::new();
 
     let mut nodes: Vec<Node> = Vec::new();
 
-    let mut tracks: HashMap<Connection, Track> = HashMap::new();
     let mut lookup: HashMap<Connection, usize> = HashMap::new();
 
     let mut children: Vec<usize> = Vec::new();
@@ -310,19 +307,16 @@ impl Path {
     lookup.insert(start.conn, count);
     open.push(count);
     nodes.push(start);
+    children.push(0);
     count += 1;
 
     while open.len() > 0 {
-      println!("open: {:?} {:?}", open, open.iter().map(|i| nodes.get(*i).expect("debug")).collect::<Vec<_>>());
-
       let target: usize = open.iter().fold((0, i32::max_value()), |acc, i| {
         let node = nodes.get(*i).expect("nodes in the open list exist");
         if node.f_score < acc.1 { (*i, node.f_score) } else { acc }
       }).0;
 
       let node = nodes[target];
-
-      println!("target: {:?} {:?}", target, node);
 
       if node.conn.pos == to {
         let mut target = target;
@@ -334,7 +328,7 @@ impl Path {
           target = children[target];
         }
 
-//        total.push(target);
+        total.push(target);
 
         total.reverse();
 
@@ -342,7 +336,6 @@ impl Path {
           total
               .iter()
               .map(|i| nodes.get(*i).expect("all nodes in the children list should exist").conn)
-              .map(|conn| tracks.remove(&conn).expect("if a connection exists, there has to be a track to it"))
               .collect()
         );
       }
@@ -350,18 +343,16 @@ impl Path {
       open.remove_item(&target);
       closed.push(target);
 
-      for track in node.conn.gen_connections() {
-        let total_g = node.g_score + track.len();
+      for (conn, len) in node.conn.gen_connections() {
+        let total_g = node.g_score + len * 10;
 
-        if let Some(i) = lookup.get(&track.end()) {
+        if let Some(i) = lookup.get(&conn) {
           if !closed.contains(i) {
             let mut n_node = nodes.get_mut(*i).expect("nodes should exists if they are in lookup");
 
             if n_node.g_score <= total_g {
               continue;
             }
-
-            tracks.insert(n_node.conn, track);
 
             let mut child = children.get_mut(*i).expect("a children entry should exist for all nodes");
             *child = target;
@@ -371,8 +362,6 @@ impl Path {
           }
           continue;
         }
-
-        let conn = track.end();
 
         let n_node = Node {
           conn,
@@ -385,80 +374,10 @@ impl Path {
         nodes.push(n_node);
         children.push(target);
         count += 1;
-
-        tracks.insert(conn, track);
       }
     }
 
     None
-
-//    let mut closed: HashMap<Connection, Node> = HashMap::new();
-//    let mut open: HashMap<Connection, Node> = HashMap::new();
-//
-//    let mut from: HashMap<Connection, Track> = HashMap::new();
-//
-//    open.insert(head, start);
-//
-//    while open.len() > 0 {
-//      let curr = open.values().fold(None, |acc, v| match acc {
-//        None => Some(v),
-//        Some(c) => if c.g_score <= v.g_score { Some(c) } else { Some(v) }
-//      }).expect("should have at least one element at this point");
-//
-//      if curr.conn.pos == to {
-//        let mut curr = match from.remove(&curr.conn) {
-//          Some(t) => t,
-//          None => return None,
-//        };
-//        let mut total = Vec::new();
-//
-//        while let Some(par) = from.remove(&curr.start()) {
-//          total.push(curr);
-//          curr = par;
-//        }
-//
-//        total.push(curr);
-//
-//        total.reverse();
-//
-//        return Some(total);
-//      }
-//
-//      open.remove(&curr.conn);
-//      closed.insert(curr.conn, curr.clone());
-//
-//      for track in curr.conn.gen_connections() {
-//        let next = track.end();
-//
-//        if closed.contains_key(&next) {
-//          continue;
-//        }
-//
-//        let total_g = curr.g_score + track.len();
-//
-//        if let Some(n_node) = open.get_mut(&next) {
-//          if n_node.g_score <= total_g {
-//            continue;
-//          }
-//
-//          from.insert(next, track);
-//
-//          n_node.g_score = total_g;
-//          n_node.f_score = total_g + Path::estimate(&next, &to);
-//
-//          continue;
-//        }
-//
-//        from.insert(next, track);
-//        open.insert(next, Node {
-//          conn: next,
-//          g_score: total_g,
-//          f_score: total_g + Path::estimate(&next, &to),
-//        });
-//      }
-//    }
-//
-//    return None;
   }
 }
 

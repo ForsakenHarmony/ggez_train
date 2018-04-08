@@ -9,12 +9,14 @@ use ggez::{
   Context,
 };
 
+pub const STRT_LEN: i32 = GRID_CELL_SIZE as i32;
+
 pub trait TrackPiece {
   fn start(&self) -> Connection;
   fn end(&self) -> Connection;
 
   fn len(&self) -> i32 {
-    GRID_CELL_SIZE as i32
+    STRT_LEN
   }
 
   fn lerp(&self, perc: f32) -> Pos {
@@ -61,6 +63,9 @@ pub struct Diagonal {
   end: Connection,
 }
 
+use std::f32::consts::SQRT_2;
+pub const DIAG_LEN: i32 = (SQRT_2 * GRID_CELL_SIZE as f32) as i32;
+
 impl Diagonal {
   pub fn new(start: Connection, end: Connection) -> Self {
     Diagonal {
@@ -79,14 +84,14 @@ impl TrackPiece for Diagonal {
   }
 
   fn len(&self) -> i32 {
-    (GRID_CELL_SIZE as f32 * 2f32.sqrt()) as i32
+    DIAG_LEN
   }
 }
 
 const TURN_RADIUS: f32 = 2.5 * GRID_CELL_SIZE as f32;
 const TURN_ANGLE: f32 = 0.643501102924346923828125;
 // 0.75_f32.atan();
-const TURN_LENGTH: f32 = TURN_ANGLE * TURN_RADIUS;
+pub const TURN_LENGTH: i32 = (TURN_ANGLE * TURN_RADIUS) as i32;
 
 const TURN_DIVISIONS: i32 = 4;
 const TURN_ANGLE_FRACT: f32 = TURN_ANGLE / TURN_DIVISIONS as f32;
@@ -106,7 +111,7 @@ impl Turn {
     let curr_pos = end.pos;
 
     let matc = |pos: Pos, center: Pos, turn: i8, ang: f32, reverse: bool| -> (Pos, i8, f32) {
-      (Pos((pos.0 + center.0 * TURN_RADIUS as i32) as i32, (pos.1 + center.1 * TURN_RADIUS as i32) as i32), turn, ang * 2. * PI - if reverse { turn as f32 * TURN_ANGLE } else { 0. })
+      (Pos((pos.0 as f32 + center.0 as f32 * 2.5) as i32, (pos.1 as f32 + center.1 as f32 * 2.5) as i32), turn, ang * 2. * PI - if reverse { turn as f32 * TURN_ANGLE } else { 0. })
     };
 
     use self::Dir::*;
@@ -114,20 +119,20 @@ impl Turn {
     let (center, dir, base_ang) = match (&start.dir, &end.dir) {
       (Up, UpLeft) => matc(prev_pos, Dir::Left.into(), 1, 0.0, false),
       (Up, UpRight) => matc(prev_pos, Dir::Right.into(), -1, 0.5, false),
-      (UpRight, Up) => matc(curr_pos, Dir::Left.into(), -1, 0.0, true),
-      (UpRight, Right) => matc(curr_pos, Dir::Down.into(), 1, 0.25, true),
+      (UpRight, Up) => matc(curr_pos, Dir::Left.into(), 1, 0.0, true),
+      (UpRight, Right) => matc(curr_pos, Dir::Down.into(), -1, 0.25, true),
       (Right, UpRight) => matc(prev_pos, Dir::Up.into(), 1, 0.75, false),
       (Right, DownRight) => matc(prev_pos, Dir::Down.into(), -1, 0.25, false),
-      (DownRight, Right) => matc(curr_pos, Dir::Up.into(), -1, 0.75, true),
-      (DownRight, Down) => matc(curr_pos, Dir::Left.into(), 1, 0.0, true),
+      (DownRight, Right) => matc(curr_pos, Dir::Up.into(), 1, 0.75, true),
+      (DownRight, Down) => matc(curr_pos, Dir::Left.into(), -1, 0.0, true),
       (Down, DownRight) => matc(prev_pos, Dir::Right.into(), 1, 0.5, false),
       (Down, DownLeft) => matc(prev_pos, Dir::Left.into(), -1, 0.0, false),
-      (DownLeft, Down) => matc(curr_pos, Dir::Right.into(), -1, 0.5, true),
-      (DownLeft, Left) => matc(curr_pos, Dir::Up.into(), 1, 0.75, true),
+      (DownLeft, Down) => matc(curr_pos, Dir::Right.into(), 1, 0.5, true),
+      (DownLeft, Left) => matc(curr_pos, Dir::Up.into(), -1, 0.75, true),
       (Left, DownLeft) => matc(prev_pos, Dir::Down.into(), 1, 0.25, false),
       (Left, UpLeft) => matc(prev_pos, Dir::Up.into(), -1, 0.75, false),
-      (UpLeft, Left) => matc(curr_pos, Dir::Down.into(), -1, 0.25, true),
-      (UpLeft, Up) => matc(curr_pos, Dir::Right.into(), 1, 0.5, true),
+      (UpLeft, Left) => matc(curr_pos, Dir::Down.into(), 1, 0.25, true),
+      (UpLeft, Up) => matc(curr_pos, Dir::Right.into(), -1, 0.5, true),
 
       (a, b) => {
         unreachable!("invalid turn {:?} to {:?}", a, b);
@@ -152,7 +157,7 @@ impl TrackPiece for Turn {
     self.end
   }
   fn len(&self) -> i32 {
-    TURN_LENGTH as i32
+    TURN_LENGTH
   }
   fn lerp(&self, perc: f32) -> Pos {
     let Pos(cx, cy) = self.center;
@@ -179,6 +184,8 @@ impl TrackPiece for Turn {
       graphics::line(ctx, &[prev.into(), curr.into()], 2.)?;
     }
 
+//    graphics::circle(ctx, graphics::DrawMode::Fill, self.center.into(), 3., 0.2)?;
+
     Ok(())
   }
 }
@@ -188,6 +195,41 @@ pub enum Track {
   Diag(Diagonal),
   Turn(Turn),
   Strt(Straight),
+}
+
+impl From<(Connection, Connection)> for Track {
+  fn from((start, end): (Connection, Connection)) -> Self {
+    use self::Dir::*;
+
+    match (start.dir, end.dir) {
+      (Up, Up) => Track::Strt(Straight::new(start, end)),
+      (Up, UpLeft) => Track::Turn(Turn::new(start, end)),
+      (Up, UpRight) => Track::Turn(Turn::new(start, end)),
+      (UpRight, UpRight) => Track::Diag(Diagonal::new(start, end)),
+      (UpRight, Up) => Track::Turn(Turn::new(start, end)),
+      (UpRight, Right) => Track::Turn(Turn::new(start, end)),
+      (Right, Right) => Track::Strt(Straight::new(start, end)),
+      (Right, UpRight) => Track::Turn(Turn::new(start, end)),
+      (Right, DownRight) => Track::Turn(Turn::new(start, end)),
+      (DownRight, DownRight) => Track::Diag(Diagonal::new(start, end)),
+      (DownRight, Right) => Track::Turn(Turn::new(start, end)),
+      (DownRight, Down) => Track::Turn(Turn::new(start, end)),
+      (Down, Down) => Track::Strt(Straight::new(start, end)),
+      (Down, DownRight) => Track::Turn(Turn::new(start, end)),
+      (Down, DownLeft) => Track::Turn(Turn::new(start, end)),
+      (DownLeft, DownLeft) => Track::Diag(Diagonal::new(start, end)),
+      (DownLeft, Down) => Track::Turn(Turn::new(start, end)),
+      (DownLeft, Left) => Track::Turn(Turn::new(start, end)),
+      (Left, Left) => Track::Strt(Straight::new(start, end)),
+      (Left, DownLeft) => Track::Turn(Turn::new(start, end)),
+      (Left, UpLeft) => Track::Turn(Turn::new(start, end)),
+      (UpLeft, UpLeft) => Track::Diag(Diagonal::new(start, end)),
+      (UpLeft, Left) => Track::Turn(Turn::new(start, end)),
+      (UpLeft, Up) => Track::Turn(Turn::new(start, end)),
+
+      _ => unreachable!("This is not a valid Track"),
+    }
+  }
 }
 
 impl TrackPiece for Track {
